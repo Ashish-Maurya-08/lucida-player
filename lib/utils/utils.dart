@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:developer';
 
 import 'package:dio/dio.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:lucida_player/models/music_item.dart';
 
 class Debouncer {
@@ -32,8 +33,7 @@ class DioConfig{
 
   final dio = Dio(
     BaseOptions(
-      // baseUrl: 'https://lucida-api.vercel.app',
-      baseUrl: 'http://192.168.1.3:3000',
+      baseUrl: dotenv.env['API_URL'] ?? "",
       connectTimeout: Duration(seconds: 10),
       receiveTimeout: Duration(seconds: 15),
     )
@@ -68,6 +68,23 @@ class APIClient {
     }
     if (response.data is String) {
       return response.data;
+    } else {
+      log('Unexpected API response format: ${response.data.runtimeType}');
+      return null;
+    }
+  }
+
+  Future<List<Track>?> getAlbumTracks(String albumUrl) async {
+    final response = await dio.get('/qobuz/album',queryParameters: {'url': albumUrl});
+    if (response.statusCode != 200) {
+      log('Album fetch failed: ${response.statusCode}');
+      return null;
+    }
+    if (response.data is Map<String, dynamic>) {
+      var tracksJson = response.data['tracks'] as List;
+      var coverArtworks = response.data['metadata']['coverArtwork'] as List;
+      var tracksList = tracksJson.map((track) => Track.fromJson(track, coverArtworks)).toList();
+      return tracksList;
     } else {
       log('Unexpected API response format: ${response.data.runtimeType}');
       return null;

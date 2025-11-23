@@ -50,7 +50,9 @@ class Track {
     required this.coverArtworks
   });
 
-  factory Track.fromJson(Map<String, dynamic> json) {
+  factory Track.fromJson(Map<String, dynamic> json, [List<dynamic>? coverArtworks]) {
+    coverArtworks = coverArtworks ?? json['album']['coverArtwork'];
+
     return Track(
       title: json['title'],
       id: json['id'],
@@ -58,9 +60,9 @@ class Track {
       duration: json['durationMs'] != null
           ? Duration(milliseconds: (json['durationMs'] as num).toInt())
           : null,
-      coverArtworks: (json['album']['coverArtwork'] != null && (json['album']['coverArtwork'] as List).isNotEmpty)
-          ? json['album']['coverArtwork'].map<String>((x) => x['url'] as String).toList()
-          : [],
+      coverArtworks: ((coverArtworks != null && coverArtworks.isNotEmpty)
+          ? coverArtworks.map<String>((x) => x['url'] as String).toList()
+          : []),
       artists: (json['artists'] != null && (json['artists'] as List).isNotEmpty)
           ? json['artists'].map<String>((x) => x['name'] as String).toList()
           : [],
@@ -72,26 +74,32 @@ class Track {
 class Album {
   final String title;
   final String id;
+  final String url;
   final List<String> coverArtworks;
   final List<String> artists;
+  final List<Track>? tracks;
 
   Album({
     required this.title,
     required this.id,
+    required this.url,
     required this.coverArtworks,
     required this.artists,
+    this.tracks,
   });
 
-  factory Album.fromJson(Map<String, dynamic> json) {
+  factory Album.fromJson(Map<String, dynamic> json, [List<Track>? tracks]) { 
     return Album(
       title: json['title'] ?? '',
       id: json['id'] ?? '',
+      url: json['url'] ?? '',
       coverArtworks: (json['coverArtwork'] != null && (json['coverArtwork'] as List).isNotEmpty)
           ? json['coverArtwork'].map<String>((x) => x['url'] as String).toList()
           : [],
       artists: (json['artists'] != null && (json['artists'] as List).isNotEmpty)
           ? json['artists'].map<String>((x) => x['name'] as String).toList()
           : [],
+      tracks: tracks,
     );
   }
 }
