@@ -8,17 +8,11 @@ class MiniPlayer extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final playerState = ref.watch(playerProvider);
-    final track = playerState.currentTrack;
+    final track = ref.watch(playerProvider.select((s) => s.currentTrack));
 
     if (track == null) {
       return const SizedBox.shrink();
     }
-
-    final progress = playerState.duration.inMilliseconds > 0
-        ? playerState.position.inMilliseconds /
-              playerState.duration.inMilliseconds
-        : 0.0;
 
     return GestureDetector(
       onTap: () {
@@ -40,12 +34,7 @@ class MiniPlayer extends ConsumerWidget {
         ),
         child: Column(
           children: [
-            LinearProgressIndicator(
-              value: progress.clamp(0.0, 1.0),
-              backgroundColor: Colors.transparent,
-              valueColor: const AlwaysStoppedAnimation<Color>(Colors.white),
-              minHeight: 2,
-            ),
+            const _MiniPlayerProgress(),
             Expanded(
               child: Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 16.0),
@@ -100,24 +89,56 @@ class MiniPlayer extends ConsumerWidget {
                         ],
                       ),
                     ),
-                    IconButton(
-                      onPressed: () {
-                        ref.read(playerProvider.notifier).togglePlayPause();
-                      },
-                      icon: Icon(
-                        playerState.isPlaying
-                            ? Icons.pause_circle_filled
-                            : Icons.play_circle_fill,
-                        color: Colors.white,
-                        size: 40,
-                      ),
-                    ),
+                    const _MiniPlayerPlayButton(),
                   ],
                 ),
               ),
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+class _MiniPlayerProgress extends ConsumerWidget {
+  const _MiniPlayerProgress();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final progress = ref.watch(
+      playerProvider.select((s) {
+        if (s.duration.inMilliseconds > 0) {
+          return s.position.inMilliseconds / s.duration.inMilliseconds;
+        }
+        return 0.0;
+      }),
+    );
+
+    return LinearProgressIndicator(
+      value: progress.clamp(0.0, 1.0),
+      backgroundColor: Colors.transparent,
+      valueColor: const AlwaysStoppedAnimation<Color>(Colors.white),
+      minHeight: 2,
+    );
+  }
+}
+
+class _MiniPlayerPlayButton extends ConsumerWidget {
+  const _MiniPlayerPlayButton();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final isPlaying = ref.watch(playerProvider.select((s) => s.isPlaying));
+
+    return IconButton(
+      onPressed: () {
+        ref.read(playerProvider.notifier).togglePlayPause();
+      },
+      icon: Icon(
+        isPlaying ? Icons.pause_circle_filled : Icons.play_circle_fill,
+        color: Colors.white,
+        size: 40,
       ),
     );
   }

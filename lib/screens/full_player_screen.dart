@@ -5,17 +5,10 @@ import 'package:lucida_player/providers/player_provider.dart';
 class FullPlayerScreen extends ConsumerWidget {
   const FullPlayerScreen({super.key});
 
-  String _formatDuration(Duration duration) {
-    String twoDigits(int n) => n.toString().padLeft(2, "0");
-    String twoDigitMinutes = twoDigits(duration.inMinutes.remainder(60));
-    String twoDigitSeconds = twoDigits(duration.inSeconds.remainder(60));
-    return "$twoDigitMinutes:$twoDigitSeconds";
-  }
-
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final playerState = ref.watch(playerProvider);
-    final track = playerState.currentTrack;
+    // Only rebuild the main structure when the track changes
+    final track = ref.watch(playerProvider.select((s) => s.currentTrack));
 
     if (track == null) return const SizedBox.shrink();
 
@@ -129,141 +122,150 @@ class FullPlayerScreen extends ConsumerWidget {
           const SizedBox(height: 32),
 
           // Progress Bar
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 24.0),
-            child: Column(
-              children: [
-                SliderTheme(
-                  data: SliderTheme.of(context).copyWith(
-                    trackHeight: 4,
-                    thumbShape: const RoundSliderThumbShape(
-                      enabledThumbRadius: 6,
-                    ),
-                    overlayShape: const RoundSliderOverlayShape(
-                      overlayRadius: 14,
-                    ),
-                    activeTrackColor: Colors.white,
-                    inactiveTrackColor: Colors.grey[800],
-                    thumbColor: Colors.white,
-                    overlayColor: Colors.white.withOpacity(0.2),
-                  ),
-                  child: Slider(
-                    value: playerState.position.inSeconds.toDouble().clamp(
-                      0,
-                      playerState.duration.inSeconds.toDouble(),
-                    ),
-                    max: playerState.duration.inSeconds.toDouble() > 0
-                        ? playerState.duration.inSeconds.toDouble()
-                        : 1,
-                    onChanged: (value) {
-                      ref
-                          .read(playerProvider.notifier)
-                          .seek(Duration(seconds: value.toInt()));
-                    },
-                  ),
-                ),
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 0.0),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text(
-                        _formatDuration(playerState.position),
-                        style: const TextStyle(
-                          color: Colors.grey,
-                          fontSize: 12,
-                        ),
-                      ),
-                      Text(
-                        _formatDuration(playerState.duration),
-                        style: const TextStyle(
-                          color: Colors.grey,
-                          fontSize: 12,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
+          const Padding(
+            padding: EdgeInsets.symmetric(horizontal: 24.0),
+            child: _PlayerProgressBar(),
           ),
 
           const SizedBox(height: 32),
 
           // Controls
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 24.0),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-              children: [
-                IconButton(
-                  icon: Icon(
-                    playerState.repeatMode == RepeatMode.one
-                        ? Icons.repeat_one
-                        : Icons.repeat,
-                    color: playerState.repeatMode == RepeatMode.off
-                        ? Colors.grey
-                        : Colors.white,
-                  ),
-                  onPressed: () {
-                    ref.read(playerProvider.notifier).toggleRepeat();
-                  },
-                ),
-                IconButton(
-                  icon: const Icon(
-                    Icons.skip_previous,
-                    color: Colors.white,
-                    size: 36,
-                  ),
-                  onPressed: () {
-                    ref.read(playerProvider.notifier).previous();
-                  },
-                ),
-                Container(
-                  width: 64,
-                  height: 64,
-                  decoration: const BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: Colors.white,
-                  ),
-                  child: IconButton(
-                    icon: Icon(
-                      playerState.isPlaying ? Icons.pause : Icons.play_arrow,
-                      color: Colors.black,
-                      size: 32,
-                    ),
-                    onPressed: () {
-                      ref.read(playerProvider.notifier).togglePlayPause();
-                    },
-                  ),
-                ),
-                IconButton(
-                  icon: const Icon(
-                    Icons.skip_next,
-                    color: Colors.white,
-                    size: 36,
-                  ),
-                  onPressed: () {
-                    ref.read(playerProvider.notifier).next();
-                  },
-                ),
-                IconButton(
-                  icon: const Icon(Icons.list, color: Colors.grey),
-                  onPressed: () {
-                    showModalBottomSheet(
-                      context: context,
-                      isScrollControlled: true,
-                      backgroundColor: Colors.transparent,
-                      builder: (context) => const QueueBottomSheet(),
-                    );
-                  },
-                ),
-              ],
-            ),
+          const Padding(
+            padding: EdgeInsets.symmetric(horizontal: 24.0),
+            child: _PlayerControls(),
           ),
           const SizedBox(height: 48),
         ],
       ),
+    );
+  }
+}
+
+class _PlayerProgressBar extends ConsumerWidget {
+  const _PlayerProgressBar();
+
+  String _formatDuration(Duration duration) {
+    String twoDigits(int n) => n.toString().padLeft(2, "0");
+    String twoDigitMinutes = twoDigits(duration.inMinutes.remainder(60));
+    String twoDigitSeconds = twoDigits(duration.inSeconds.remainder(60));
+    return "$twoDigitMinutes:$twoDigitSeconds";
+  }
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final position = ref.watch(playerProvider.select((s) => s.position));
+    final duration = ref.watch(playerProvider.select((s) => s.duration));
+
+    return Column(
+      children: [
+        SliderTheme(
+          data: SliderTheme.of(context).copyWith(
+            trackHeight: 4,
+            thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 6),
+            overlayShape: const RoundSliderOverlayShape(overlayRadius: 14),
+            activeTrackColor: Colors.white,
+            inactiveTrackColor: Colors.grey[800],
+            thumbColor: Colors.white,
+            overlayColor: Colors.white.withOpacity(0.2),
+          ),
+          child: Slider(
+            value: position.inSeconds.toDouble().clamp(
+              0,
+              duration.inSeconds.toDouble(),
+            ),
+            max: duration.inSeconds.toDouble() > 0
+                ? duration.inSeconds.toDouble()
+                : 1,
+            onChanged: (value) {
+              ref
+                  .read(playerProvider.notifier)
+                  .seek(Duration(seconds: value.toInt()));
+            },
+          ),
+        ),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 0.0),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                _formatDuration(position),
+                style: const TextStyle(color: Colors.grey, fontSize: 12),
+              ),
+              Text(
+                _formatDuration(duration),
+                style: const TextStyle(color: Colors.grey, fontSize: 12),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _PlayerControls extends ConsumerWidget {
+  const _PlayerControls();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final isPlaying = ref.watch(playerProvider.select((s) => s.isPlaying));
+    final repeatMode = ref.watch(playerProvider.select((s) => s.repeatMode));
+
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+      children: [
+        IconButton(
+          icon: Icon(
+            repeatMode == RepeatMode.one ? Icons.repeat_one : Icons.repeat,
+            color: repeatMode == RepeatMode.off ? Colors.grey : Colors.white,
+          ),
+          onPressed: () {
+            ref.read(playerProvider.notifier).toggleRepeat();
+          },
+        ),
+        IconButton(
+          icon: const Icon(Icons.skip_previous, color: Colors.white, size: 36),
+          onPressed: () {
+            ref.read(playerProvider.notifier).previous();
+          },
+        ),
+        Container(
+          width: 64,
+          height: 64,
+          decoration: const BoxDecoration(
+            shape: BoxShape.circle,
+            color: Colors.white,
+          ),
+          child: IconButton(
+            icon: Icon(
+              isPlaying ? Icons.pause : Icons.play_arrow,
+              color: Colors.black,
+              size: 32,
+            ),
+            onPressed: () {
+              ref.read(playerProvider.notifier).togglePlayPause();
+            },
+          ),
+        ),
+        IconButton(
+          icon: const Icon(Icons.skip_next, color: Colors.white, size: 36),
+          onPressed: () {
+            ref.read(playerProvider.notifier).next();
+          },
+        ),
+        IconButton(
+          icon: const Icon(Icons.list, color: Colors.grey),
+          onPressed: () {
+            showModalBottomSheet(
+              context: context,
+              isScrollControlled: true,
+              backgroundColor: Colors.transparent,
+              builder: (context) => const QueueBottomSheet(),
+            );
+          },
+        ),
+      ],
     );
   }
 }
@@ -350,7 +352,9 @@ class QueueBottomSheet extends ConsumerWidget {
                         },
                         child: ListTile(
                           onTap: () {
-                            ref.read(playerProvider.notifier).play(queue, index);
+                            ref
+                                .read(playerProvider.notifier)
+                                .play(queue, index);
                           },
                           leading: ClipRRect(
                             borderRadius: BorderRadius.circular(4),
@@ -362,15 +366,15 @@ class QueueBottomSheet extends ConsumerWidget {
                               height: 48,
                               fit: BoxFit.cover,
                               errorBuilder: (context, error, stackTrace) =>
-                                Container(
-                                  width: 48,
-                                  height: 48,
-                                  color: Colors.grey,
-                                  child: Icon(
-                                    Icons.music_note,
-                                    color: Colors.white,
+                                  Container(
+                                    width: 48,
+                                    height: 48,
+                                    color: Colors.grey,
+                                    child: Icon(
+                                      Icons.music_note,
+                                      color: Colors.white,
+                                    ),
                                   ),
-                                )
                             ),
                           ),
                           title: Text(
@@ -399,7 +403,7 @@ class QueueBottomSheet extends ConsumerWidget {
                                 Icons.drag_handle,
                                 color: Colors.white,
                               ),
-                            )
+                            ),
                           ),
                         ),
                       ),

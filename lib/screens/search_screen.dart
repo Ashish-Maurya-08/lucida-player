@@ -335,7 +335,9 @@ class TracksResult extends ConsumerWidget {
       itemBuilder: (context, index) {
         final track = tracks[index];
         final coverUrl = track.coverArtworks.isNotEmpty
-            ? track.coverArtworks.first
+            ? track.coverArtworks.length > 1
+                ? track.coverArtworks[1]
+                : track.coverArtworks.first
             : "";
         return ListTile(
           onTap: () {

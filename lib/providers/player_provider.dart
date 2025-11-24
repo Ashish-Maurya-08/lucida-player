@@ -1,11 +1,18 @@
 import 'dart:async';
 import 'dart:developer';
+import 'dart:io';
 
+import 'package:path_provider/path_provider.dart';
+
+import 'package:audio_service/audio_service.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:just_audio/just_audio.dart';
 import 'package:audio_session/audio_session.dart';
 import 'package:lucida_player/models/music_item.dart';
 import 'package:lucida_player/utils/utils.dart';
+import 'package:lucida_player/main.dart';
+import 'package:lucida_player/utils/audiohandler.dart';
+import 'package:lucida_player/utils/cache_manager.dart';
 
 enum RepeatMode { off, all, one }
 
@@ -59,6 +66,9 @@ class PlayerController extends StateNotifier<PlayerState> {
 
   PlayerController(this._player) : super(const PlayerState()) {
     _init();
+    final handler = audioHandler as AudioPlayerHandler;
+    handler.onNext = () => next();
+    handler.onPrevious = () => previous();
   }
 
   Future<void> _init() async {
@@ -111,7 +121,33 @@ class PlayerController extends StateNotifier<PlayerState> {
     try {
       final streamUrl = await _api.getStreamUrl(track.url);
       if (streamUrl != null) {
-        await _player.setUrl(streamUrl);
+        final item = MediaItem(
+          id: track.id,
+          title: track.title,
+          artist: track.artists.join(', '),
+          album: 'Lucida Player',
+          duration: track.duration,
+          artUri: (track.coverArtworks.isNotEmpty)
+              ? Uri.parse(track.coverArtworks.last)
+              : null,
+        );
+        (audioHandler as BaseAudioHandler).mediaItem.add(item);
+
+        await CacheManager.cleanCache();
+
+        final dir = await getApplicationCacheDirectory();
+        final cacheFile = File('${dir.path}/tracks/${track.id}.mp3');
+        if (!await cacheFile.parent.exists()) {
+          await cacheFile.parent.create(recursive: true);
+        }
+
+        await _player.setAudioSource(
+          LockCachingAudioSource(
+            Uri.parse(streamUrl),
+            cacheFile: cacheFile,
+            tag: item,
+          ),
+        );
         await _player.play();
       } else {
         log('Failed to get stream URL for track: ${track.title}');
@@ -254,7 +290,7 @@ class PlayerController extends StateNotifier<PlayerState> {
 }
 
 final audioPlayerProvider = Provider<AudioPlayer>((ref) {
-  return AudioPlayer();
+  return (audioHandler as AudioPlayerHandler).player;
 });
 
 final playerProvider = StateNotifierProvider<PlayerController, PlayerState>((
